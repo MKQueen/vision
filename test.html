@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中文手写字体识别</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <style>
+        video, canvas {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+<h1>中文手写字体识别</h1>
+<video id="video" width="320" height="240" autoplay></video>
+<canvas id="canvas" width="320" height="240"></canvas>
+<button id="capture">捕捉手写字</button>
+<p id="result">识别结果: </p>
+
+<script>
+    const video = document.getElementById('video');
+
+    // 获取用户媒体
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+            video.srcObject = stream;
+        })
+        .catch(err => {
+            console.error("Error accessing webcam: " + err);
+        });
+    const canvas = document.getElementById('canvas');
+    const captureButton = document.getElementById('capture');
+    const result = document.getElementById('result');
+    const context = canvas.getContext('2d');
+
+    captureButton.addEventListener('click', async () => {
+        // 将视频帧绘制到 canvas 上
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // 获取图像数据
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+        // 预处理图像数据
+        const tensor = tf.browser.fromPixels(imageData)
+            .resizeNearestNeighbor([32, 32])  // 根据模型输入尺寸调整
+            .mean(2)
+            .expandDims(2)
+            .expandDims()
+            .toFloat()
+            .div(tf.scalar(255.0));
+
+        // 加载预训练的手写字符识别模型
+        const model = await tf.loadLayersModel('./configuration.json');  // 替换为你的模型路径
+
+        // 使用模型进行预测
+        const prediction = model.predict(tensor);
+        const predictedIndex = prediction.argMax(1).dataSync()[0];
+
+        // 显示识别结果
+        result.textContent = `识别结果: ${predictedIndex}`;
+    });
+</script>
+</body>
+</html>

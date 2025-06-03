@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视觉demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/tracking/build/tracking.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tracking/build/data/face-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+<body>
+<video id="video" width="340" height="280" autoplay></video>
+<canvas id="canvas" width="640" height="480"></canvas>
+
+<script>
+    // 获取 video 和 canvas 元素
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    // 初始化 tracking.js
+    const tracker = new tracking.ObjectTracker();
+
+    // 添加自定义垃圾桶标注器
+    tracker.setInitialScale(4);
+    tracker.setStepSize(2);
+    tracker.setEdgesDensity(0.1);
+
+    // 加载 COCO-SSD 模型
+    cocoSsd.load().then(model => {
+        // 获取用户媒体流（这里是摄像头）
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+
+                // 当视频准备好后，开始处理每一帧
+                video.addEventListener('loadeddata', () => {
+                    // 设置 tracking.js 追踪器
+                    tracking.track('#video', tracker);
+
+                    // 设置 canvas 定时器，每隔一段时间执行绘制
+                    setInterval(() => {
+                        // 在每一帧开始前清除画布
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+
+                        // 绘制视频帧到 canvas
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        // 使用 tracking.js 进行垃圾桶标注
+                        tracker.on('track', (event) => {
+                            event.data.forEach((rect) => {
+                                context.strokeStyle = 'red';
+                                context.lineWidth = 2;
+                                context.beginPath();
+                                context.rect(rect.x, rect.y, rect.width, rect.height);
+                                context.stroke();
+                            });
+                        });
+
+                        model.detect(canvas).then(predictions => {
+                            // 遍历检测到的目标
+                            predictions.forEach(prediction => {
+                                // 绘制红框
+                                context.strokeStyle = 'red';
+                                context.lineWidth = 2;
+                                context.beginPath();
+                                context.rect(prediction.bbox[0], prediction.bbox[1], prediction.bbox[2], prediction.bbox[3]);
+                                context.stroke();
+
+                                // 绘制文字（识别类别）
+                                context.font = '16px Arial';
+                                context.fillStyle = 'green';
+                                context.fillText(
+                                    prediction.class,
+                                    prediction.bbox[0],
+                                    prediction.bbox[1] > 20 ? prediction.bbox[1] - 5 : 10
+                                );
+
+                                // 控制台输出
+                                console.log('识别内容:', prediction);
+                                console.log('识别类别:', prediction.class);
+                            });
+                        });
+                    }, 1000 / 30); // 30 帧每秒的绘制频率
+                });
+            })
+            .catch((error) => {
+                console.error('获取视频流失败:', error);
+            });
+    });
+</script>
+</body>
+</html>

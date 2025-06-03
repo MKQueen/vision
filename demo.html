@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>视觉demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/tracking/build/tracking.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tracking/build/data/face-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+</head>
+<style>
+    video{
+        opacity: 0;
+        position: relative;
+        z-index: 1;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+    }
+    #canvas{
+        position: absolute;
+        z-index: 999;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+
+    }
+</style>
+<body>
+<video id="video" autoplay></video>
+<canvas id="canvas"></canvas>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+
+    // 明确指定使用 "face" 分类器
+    const tracker = new tracking.ObjectTracker("face");
+    tracker.setInitialScale(4);
+    tracker.setStepSize(2);
+    tracker.setEdgesDensity(0.1);
+
+    cocoSsd.load().then(model => {
+        // navigator.mediaDevices.getUserMedia({ video: true })
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+
+                .then((stream) => {
+                video.srcObject = stream;
+                video.addEventListener('loadeddata', () => {
+                    tracking.track('#video', tracker);
+                    setInterval(() => {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                        tracker.on('track', (event) => {
+                            event.data.forEach((rect) => {
+                                context.strokeStyle = 'red';
+                                context.lineWidth = 2;
+                                context.beginPath();
+                                context.rect(rect.x, rect.y, rect.width, rect.height);
+                                context.stroke();
+
+                                // 显示识别结果
+                                context.fillStyle = 'red';
+                                context.font = '16px Arial';
+                                context.fillText('识别内容: YourResult', rect.x, rect.y - 5);
+                            });
+                        });
+
+                        model.detect(canvas).then(predictions => {
+                            predictions.forEach(prediction => {
+                                context.strokeStyle = 'red';
+                                context.lineWidth = 2;
+                                context.beginPath();
+                                context.rect(prediction.bbox[0], prediction.bbox[1], prediction.bbox[2], prediction.bbox[3]);
+                                context.stroke();
+
+                                // 显示识别结果
+                                context.fillStyle = 'red';
+                                context.font = '16px Arial';
+                                context.fillText('识别内容: ' + prediction.class, prediction.bbox[0], prediction.bbox[1] - 5);
+                            });
+                        });
+                    }, 1000 / 15);
+                });
+            })
+            .catch((error) => {
+                console.error('获取视频流失败:', error);
+            });
+    });
+</script>
+</body>
+
+</html>
