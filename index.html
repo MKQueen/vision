@@ -22,32 +22,20 @@
     // 初始化 tracking.js
     const tracker = new tracking.ObjectTracker();
 
-    // 添加自定义垃圾桶标注器
     tracker.setInitialScale(4);
     tracker.setStepSize(2);
     tracker.setEdgesDensity(0.1);
 
     // 加载 COCO-SSD 模型
     cocoSsd.load().then(model => {
-        // 获取用户媒体流（这里是摄像头）
         navigator.mediaDevices.getUserMedia({ video: true })
             .then((stream) => {
                 video.srcObject = stream;
-
-                // 当视频准备好后，开始处理每一帧
                 video.addEventListener('loadeddata', () => {
-                    // 设置 tracking.js 追踪器
                     tracking.track('#video', tracker);
-
-                    // 设置 canvas 定时器，每隔一段时间执行绘制
                     setInterval(() => {
-                        // 在每一帧开始前清除画布
                         context.clearRect(0, 0, canvas.width, canvas.height);
-
-                        // 绘制视频帧到 canvas
                         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                        // 使用 tracking.js 进行垃圾桶标注
                         tracker.on('track', (event) => {
                             event.data.forEach((rect) => {
                                 context.strokeStyle = 'red';
